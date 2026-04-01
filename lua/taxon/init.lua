@@ -7,6 +7,7 @@ local default_config = {
 M.config = vim.deepcopy(default_config)
 M.note = require('taxon.note')
 M.query = require('taxon.query')
+M.tag_search = require('taxon.tag_search')
 M.title_search = require('taxon.title_search')
 
 local function ensure_notes_dir(path)
@@ -56,13 +57,22 @@ local function notify_create_error(err)
   )
 end
 
-local function notify_search_error(err)
+local function notify_search_error(kind, err)
   local messages = {
-    ['missing-telescope'] = 'Taxon: title search requires Telescope (nvim-telescope/telescope.nvim)',
+    tag = {
+      ['missing-telescope'] = 'Taxon: tag search requires Telescope (nvim-telescope/telescope.nvim)',
+    },
+    title = {
+      ['missing-telescope'] = 'Taxon: title search requires Telescope (nvim-telescope/telescope.nvim)',
+    },
   }
+  local action = ({
+    tag = 'search tags',
+    title = 'search titles',
+  })[kind] or 'complete the search'
 
   vim.notify(
-    messages[err] or ('Taxon: failed to search titles (' .. err .. ')'),
+    (messages[kind] or {})[err] or ('Taxon: failed to ' .. action .. ' (' .. err .. ')'),
     vim.log.levels.ERROR
   )
 end
@@ -144,7 +154,7 @@ function M.search_titles(opts)
 
   local model, err = M.scan_notes()
   if model == nil then
-    notify_search_error(err)
+    notify_search_error('title', err)
     return nil, err
   end
 
@@ -159,7 +169,57 @@ function M.search_titles(opts)
   })
 
   if ok == nil then
-    notify_search_error(err)
+    notify_search_error('title', err)
+    return nil, err
+  end
+
+  return true
+end
+
+function M.search_tags(opts)
+  vim.validate({
+    opts = { opts, 'table', true },
+  })
+
+  opts = opts or {}
+
+  local model, err = M.scan_notes()
+  if model == nil then
+    notify_search_error('tag', err)
+    return nil, err
+  end
+
+  local tag_entries = M.tag_search.build_entries(model.tags)
+  local pick_tag = opts.pick_tag or M.tag_search.pick
+  local pick_notes = opts.pick_notes or M.title_search.pick
+  local open = opts.open or edit_path
+  local ok
+
+  ok, err = pick_tag(tag_entries, {
+    on_select = function(selection)
+      local notes, find_err = M.query.find_by_tag(model, selection.tag)
+      if notes == nil then
+        notify_search_error('tag', find_err)
+        return
+      end
+
+      local note_entries = M.title_search.build_entries(notes)
+      local note_ok, note_err = pick_notes(note_entries, {
+        open = open,
+        prompt_title = opts.results_prompt_title or ('Taxon Tag Search: ' .. selection.tag),
+        telescope = opts.telescope,
+      })
+
+      if note_ok == nil then
+        notify_search_error('tag', note_err)
+      end
+    end,
+    prompt_title = opts.prompt_title,
+    telescope = opts.telescope,
+  })
+
+  if ok == nil then
+    notify_search_error('tag', err)
     return nil, err
   end
 

@@ -21,3 +21,9 @@ vim.api.nvim_create_user_command('TaxonTitleSearch', function()
 end, {
   desc = 'Search taxon notes by title with Telescope',
 })
+
+vim.api.nvim_create_user_command('TaxonTagSearch', function()
+  require('taxon').search_tags()
+end, {
+  desc = 'Search taxon notes by tag with Telescope',
+})

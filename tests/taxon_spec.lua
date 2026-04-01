@@ -133,6 +133,31 @@ return {
     end,
   },
   {
+    name = 'TaxonTagSearch command dispatches to the module',
+    run = function()
+      helpers.eq(2, vim.fn.exists(':TaxonTagSearch'), 'TaxonTagSearch command is not registered')
+
+      local called = false
+      local original_search_tags = taxon.search_tags
+
+      taxon.search_tags = function()
+        called = true
+      end
+
+      local ok, err = pcall(vim.api.nvim_cmd, {
+        cmd = 'TaxonTagSearch',
+      }, {})
+
+      taxon.search_tags = original_search_tags
+
+      if not ok then
+        error(err)
+      end
+
+      helpers.truthy(called, 'TaxonTagSearch did not call require("taxon").search_tags()')
+    end,
+  },
+  {
     name = 'scan_notes rescans the configured notes directory on each call',
     run = function()
       helpers.with_temp_dir(function(temp_dir)
@@ -240,6 +265,101 @@ return {
         {
           level = vim.log.levels.ERROR,
           message = 'Taxon: title search requires Telescope (nvim-telescope/telescope.nvim)',
+        },
+      }, notifications)
+    end,
+  },
+  {
+    name = 'search_tags scans tags and opens notes that match an inherited parent tag',
+    run = function()
+      helpers.with_temp_dir(function(temp_dir)
+        local notes_dir = vim.fs.joinpath(temp_dir, 'notes')
+        local path = vim.fs.joinpath(notes_dir, '20260402-010203-cat.md')
+
+        taxon.setup({
+          notes_dir = notes_dir,
+        })
+
+        vim.fn.writefile({
+          '---',
+          'tags: [animal/mammal/cat]',
+          '---',
+          '',
+          '# Cat Note',
+        }, path)
+
+        local captured_tag_entries
+        local captured_note_entries
+        local result = taxon.search_tags({
+          pick_tag = function(entries, opts)
+            captured_tag_entries = entries
+            opts.on_select({
+              tag = 'animal',
+            })
+            return true
+          end,
+          pick_notes = function(entries, _)
+            captured_note_entries = entries
+            return true
+          end,
+        })
+
+        helpers.eq(true, result)
+        helpers.eq({
+          {
+            display = 'animal',
+            ordinal = 'animal animal',
+            tag = 'animal',
+          },
+          {
+            display = 'animal/mammal',
+            ordinal = 'animal/mammal animal / mammal',
+            tag = 'animal/mammal',
+          },
+          {
+            display = 'animal/mammal/cat',
+            ordinal = 'animal/mammal/cat animal / mammal / cat',
+            tag = 'animal/mammal/cat',
+          },
+        }, captured_tag_entries)
+        helpers.eq({
+          {
+            display = 'Cat Note [20260402-010203-cat.md]',
+            ordinal = 'Cat Note 20260402-010203-cat.md ' .. path,
+            path = path,
+            title = 'Cat Note',
+          },
+        }, captured_note_entries)
+      end)
+    end,
+  },
+  {
+    name = 'search_tags reports a clear error when Telescope is unavailable',
+    run = function()
+      local notifications = {}
+      local original_notify = vim.notify
+
+      vim.notify = function(message, level)
+        table.insert(notifications, {
+          level = level,
+          message = message,
+        })
+      end
+
+      local ok, err = taxon.search_tags({
+        pick_tag = function()
+          return nil, 'missing-telescope'
+        end,
+      })
+
+      vim.notify = original_notify
+
+      helpers.eq(nil, ok)
+      helpers.eq('missing-telescope', err)
+      helpers.eq({
+        {
+          level = vim.log.levels.ERROR,
+          message = 'Taxon: tag search requires Telescope (nvim-telescope/telescope.nvim)',
         },
       }, notifications)
     end,

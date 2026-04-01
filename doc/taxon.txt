@@ -16,6 +16,11 @@ COMMANDS                                                  *taxon-commands*
     Search note titles with Telescope and open the selected note.
     If Telescope is unavailable, Taxon shows a clear error message.
 
+:TaxonTagSearch
+    Search normalized explicit and inherited tags with Telescope, then choose
+    and open a matching note.
+    If Telescope is unavailable, Taxon shows a clear error message.
+
 ==============================================================================
 LUA API                                                    *taxon-lua-api*
 
@@ -30,6 +35,14 @@ require('taxon').scan_notes()                           *taxon-scan_notes*
 
 require('taxon').search_titles()                     *taxon-search_titles*
     Rescan |taxon-notes_dir|, feed note titles into a Telescope picker, and
+    open the selected note.
+
+    If Telescope is unavailable, Taxon shows a clear error message instead of
+    raising a raw Lua stack trace.
+
+require('taxon').search_tags()                         *taxon-search_tags*
+    Rescan |taxon-notes_dir|, feed normalized explicit and inherited tags into
+    a Telescope picker, then show the notes that match the selected tag and
     open the selected note.
 
     If Telescope is unavailable, Taxon shows a clear error message instead of

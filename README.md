@@ -7,8 +7,8 @@ only by folders.
 ## Status
 
 The repository now includes note parsing, tag normalization, timestamped
-new-note creation, and on-demand note scanning with inherited parent-tag
-expansion. The remaining MVP definition lives in
+new-note creation, on-demand note scanning with inherited parent-tag expansion,
+and Telescope search by title and tag. The remaining MVP definition lives in
 [`docs/spec.md`](docs/spec.md).
 
 ## Docs
@@ -43,6 +43,7 @@ Current commands:
 :TaxonOpen
 :TaxonNew
 :TaxonTitleSearch
+:TaxonTagSearch
 ```
 
 `:TaxonNew` prompts for a title, creates
@@ -54,11 +55,17 @@ characters such as `/` and `\\` are rejected explicitly.
 opens the selected note. If Telescope is not installed, Taxon reports a clear
 error instead of raising a raw Lua stack trace.
 
+`:TaxonTagSearch` rescans `notes_dir`, lets you pick from normalized explicit
+and inherited tags in Telescope, then shows the notes that match the selected
+tag and opens the chosen note. If Telescope is not installed, Taxon reports a
+clear error instead of raising a raw Lua stack trace.
+
 Lua API:
 
 ```lua
 local model = require("taxon").scan_notes()
 require("taxon").search_titles()
+require("taxon").search_tags()
 ```
 
 `scan_notes()` rescans `notes_dir` on each call and returns a query model with
@@ -69,6 +76,10 @@ tags. Invalid Markdown notes are skipped deterministically and reported through
 
 `search_titles()` uses the same scan model to populate a Telescope picker from
 note titles and opens the selected note path.
+
+`search_tags()` uses the scan model's inherited tag index to populate a
+Telescope tag picker, then opens a second picker with the matching notes for
+the selected tag.
 
 ## Note Format
 

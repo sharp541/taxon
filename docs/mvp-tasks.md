@@ -28,7 +28,7 @@ These stay out of the MVP unless `docs/spec.md` changes:
 
 ## Status Board
 
-Recommended next task: `TAXON-MVP-05`
+Recommended next task: `TAXON-MVP-07`
 
 | ID | Status | Depends On | Session Goal |
 | --- | --- | --- | --- |
@@ -38,7 +38,7 @@ Recommended next task: `TAXON-MVP-05`
 | TAXON-MVP-03 | done | TAXON-MVP-01, TAXON-MVP-02 | Implement new-note creation flow with timestamped filenames and a user command |
 | TAXON-MVP-04 | done | TAXON-MVP-01, TAXON-MVP-02 | Implement on-demand note scanning and derived parent-tag expansion |
 | TAXON-MVP-05 | done | TAXON-MVP-04 | Implement Telescope title search and note opening |
-| TAXON-MVP-06 | todo | TAXON-MVP-04 | Implement Telescope tag search using inherited tags |
+| TAXON-MVP-06 | done | TAXON-MVP-04 | Implement Telescope tag search using inherited tags |
 | TAXON-MVP-07 | todo | TAXON-MVP-04 | Build the in-memory hierarchical tag tree model |
 | TAXON-MVP-08 | todo | TAXON-MVP-07 | Implement the tag tree view and opening notes from that view |
 | TAXON-MVP-09 | todo | TAXON-MVP-03, TAXON-MVP-05, TAXON-MVP-06, TAXON-MVP-08 | Final MVP polish: command docs, help text, tests, acceptance pass |
@@ -150,7 +150,7 @@ Done when:
 
 ### TAXON-MVP-05 Telescope Title Search
 
-Status: `todo`
+Status: `done`
 
 Goal: search notes by title through Telescope and open the selected note.
 
@@ -170,7 +170,7 @@ Done when:
 
 ### TAXON-MVP-06 Telescope Tag Search
 
-Status: `todo`
+Status: `done`
 
 Goal: search notes by tag through Telescope, including inherited parent tags.
 
@@ -262,3 +262,4 @@ Append one line at the end of each working session.
 | 2026-04-02 | TAXON-MVP-03 | done | working tree | Added `:TaxonNew`, deterministic timestamped filename creation, safe-title validation, docs, and tests for file creation flow |
 | 2026-04-02 | TAXON-MVP-04 | done | working tree | Added on-demand scan/query modeling with inherited parent tags, deterministic invalid-note reporting, docs, and tests |
 | 2026-04-02 | TAXON-MVP-05 | done | working tree | Added `:TaxonTitleSearch` and `search_titles()` with a testable Telescope adapter, clear missing-Telescope errors, docs, and note-opening tests |
+| 2026-04-02 | TAXON-MVP-06 | done | working tree | Added `:TaxonTagSearch` and `search_tags()` using inherited tags, clear missing-Telescope errors, docs, and tests |
