@@ -28,12 +28,12 @@ These stay out of the MVP unless `docs/spec.md` changes:
 
 ## Status Board
 
-Recommended next task: `TAXON-MVP-01`
+Recommended next task: `TAXON-MVP-02`
 
 | ID | Status | Depends On | Session Goal |
 | --- | --- | --- | --- |
 | TAXON-MVP-00 | done | - | Baseline scaffold: `setup()`, notes directory creation, `TaxonOpen` |
-| TAXON-MVP-01 | todo | TAXON-MVP-00 | Implement note format primitives: frontmatter `tags`, first-H1 title extraction, canonical note template |
+| TAXON-MVP-01 | done | TAXON-MVP-00 | Implement note format primitives: frontmatter `tags`, first-H1 title extraction, canonical note template |
 | TAXON-MVP-02 | todo | TAXON-MVP-01 | Implement tag normalization and validation rules from the spec |
 | TAXON-MVP-03 | todo | TAXON-MVP-01, TAXON-MVP-02 | Implement new-note creation flow with timestamped filenames and a user command |
 | TAXON-MVP-04 | todo | TAXON-MVP-01, TAXON-MVP-02 | Implement on-demand note scanning and derived parent-tag expansion |
@@ -57,7 +57,7 @@ Already present in the repository:
 
 ### TAXON-MVP-01 Note Format Primitives
 
-Status: `todo`
+Status: `done`
 
 Goal: implement the narrow note parser/renderer required by the MVP format.
 
@@ -257,3 +257,4 @@ Append one line at the end of each working session.
 | Date | Task | Result | Commit | Handoff Note |
 | --- | --- | --- | --- | --- |
 | 2026-04-01 | TAXON-MVP-00 | done | working tree baseline | `setup()`, notes directory creation, and `TaxonOpen` already exist with tests |
+| 2026-04-01 | TAXON-MVP-01 | done | working tree | Added `taxon.note` parsing/rendering primitives with deterministic rejection paths and test coverage |

@@ -1,0 +1,149 @@
+local helpers = dofile('tests/helpers.lua')
+local note = require('taxon.note')
+
+return {
+  {
+    name = 'render returns the canonical new-note template',
+    run = function()
+      local content = note.render('  Title  ')
+
+      helpers.eq(
+        table.concat({
+          '---',
+          'tags: []',
+          '---',
+          '',
+          '# Title',
+          '',
+        }, '\n'),
+        content
+      )
+    end,
+  },
+  {
+    name = 'parse reads tags and the first H1 title from a note',
+    run = function()
+      local parsed = note.parse(table.concat({
+        '---',
+        'tags:',
+        '  - animal/mammal/cat',
+        '  - Project/Client A',
+        '---',
+        '',
+        'paragraph',
+        '# Cat Note',
+        '## Details',
+      }, '\n'))
+
+      helpers.eq({
+        tags = { 'animal/mammal/cat', 'Project/Client A' },
+        title = 'Cat Note',
+      }, parsed)
+    end,
+  },
+  {
+    name = 'parse accepts inline tags and setext H1 titles',
+    run = function()
+      local parsed = note.parse(table.concat({
+        '---',
+        'tags: [animal/mammal/cat, "Client A / Draft"]',
+        '---',
+        '',
+        'Setext Title',
+        '===========',
+      }, '\n'))
+
+      helpers.eq({
+        tags = { 'animal/mammal/cat', 'Client A / Draft' },
+        title = 'Setext Title',
+      }, parsed)
+    end,
+  },
+  {
+    name = 'read returns structured note data from a file path',
+    run = function()
+      helpers.with_temp_dir(function(temp_dir)
+        local path = vim.fs.joinpath(temp_dir, 'note.md')
+
+        vim.fn.writefile({
+          '---',
+          'tags: []',
+          '---',
+          '',
+          '# Read Title',
+        }, path)
+
+        local parsed = note.read(path)
+
+        helpers.eq({
+          path = path,
+          tags = {},
+          title = 'Read Title',
+        }, parsed)
+      end)
+    end,
+  },
+  {
+    name = 'parse rejects notes without frontmatter',
+    run = function()
+      local parsed, err = note.parse('# Missing Frontmatter\n')
+
+      helpers.eq(nil, parsed)
+      helpers.eq('missing-frontmatter', err)
+    end,
+  },
+  {
+    name = 'parse rejects unsupported frontmatter keys',
+    run = function()
+      local parsed, err = note.parse(table.concat({
+        '---',
+        'title: Wrong',
+        '---',
+        '',
+        '# Wrong',
+      }, '\n'))
+
+      helpers.eq(nil, parsed)
+      helpers.eq('unsupported-frontmatter', err)
+    end,
+  },
+  {
+    name = 'parse rejects invalid tag shapes',
+    run = function()
+      local parsed, err = note.parse(table.concat({
+        '---',
+        'tags: not-a-list',
+        '---',
+        '',
+        '# Wrong',
+      }, '\n'))
+
+      helpers.eq(nil, parsed)
+      helpers.eq('invalid-tags', err)
+    end,
+  },
+  {
+    name = 'parse rejects notes without an H1 title',
+    run = function()
+      local parsed, err = note.parse(table.concat({
+        '---',
+        'tags: []',
+        '---',
+        '',
+        'Body only',
+      }, '\n'))
+
+      helpers.eq(nil, parsed)
+      helpers.eq('missing-title', err)
+    end,
+  },
+  {
+    name = 'render rejects invalid titles',
+    run = function()
+      local content, err = note.render(' \n ')
+
+      helpers.eq(nil, content)
+      helpers.eq('invalid-title', err)
+    end,
+  },
+}

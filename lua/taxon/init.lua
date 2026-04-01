@@ -5,6 +5,7 @@ local default_config = {
 }
 
 M.config = vim.deepcopy(default_config)
+M.note = require('taxon.note')
 
 local function ensure_notes_dir(path)
   local stat = vim.uv.fs_stat(path)

@@ -1,4 +1,5 @@
 local suites = {
+  'tests/note_spec.lua',
   'tests/taxon_spec.lua',
 }
 
