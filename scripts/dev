@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+set -eu
+
+ROOT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+NVIM_BIN=${NVIM_BIN:-nvim}
+INIT_FILE="$ROOT_DIR/scripts/dev_init.lua"
+
+if "$NVIM_BIN" --version >/dev/null 2>&1; then
+  exec "$NVIM_BIN" -u "$INIT_FILE" "$@"
+fi
+
+if "$NVIM_BIN" --appimage-extract-and-run --version >/dev/null 2>&1; then
+  exec "$NVIM_BIN" --appimage-extract-and-run -u "$INIT_FILE" "$@"
+fi
+
+printf '%s\n' "Unable to execute Neovim with $NVIM_BIN" >&2
+exit 1

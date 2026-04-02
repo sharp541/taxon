@@ -35,6 +35,28 @@ Using `lazy.nvim`:
 If you do not install Telescope, `:TaxonTitleSearch` and `:TaxonTagSearch`
 report a clear error and the rest of the MVP still works.
 
+## Local Development
+
+To try this repository in your local Neovim without editing your main config:
+
+```sh
+chmod +x ./scripts/dev
+./scripts/dev
+```
+
+This starts Neovim with [`scripts/dev_init.lua`](scripts/dev_init.lua), which:
+
+- loads your regular `~/.config/nvim/init.lua` if it exists,
+- prepends this repository to `runtimepath`,
+- registers Taxon commands from `plugin/taxon.lua`,
+- configures `notes_dir` to `./.tmp/taxon-notes` by default.
+
+You can override the note directory for a session:
+
+```sh
+TAXON_DEV_NOTES_DIR=/tmp/taxon-notes ./scripts/dev
+```
+
 ## Usage
 
 ```lua
