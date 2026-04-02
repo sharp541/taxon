@@ -3,13 +3,15 @@ local tag_tree_view = require('taxon.tag_tree_view')
 
 return {
   {
-    name = 'build_entries flattens the tag tree into indented lines with note counts',
+    name = 'build_entries flattens expanded tag nodes into tag and file lines',
     run = function()
       local bird_note = {
+        explicit_tags = { 'animal/bird' },
         path = '/tmp/20260402-010203-bird.md',
         title = 'Bird Note',
       }
       local cat_note = {
+        explicit_tags = { 'animal/mammal/cat' },
         path = '/tmp/20260402-020304-cat.md',
         title = 'Cat Note',
       }
@@ -50,96 +52,92 @@ return {
           },
           tag = 'animal',
         },
+      }, {
+        expanded_tags = {
+          ['animal'] = true,
+          ['animal/mammal'] = true,
+        },
       })
 
       helpers.eq({
-        'animal (2)',
-        '  bird (1)',
-        '  mammal (1)',
-        '    cat (1)',
+        'v animal',
+        '  > bird',
+        '  v mammal',
+        '    > cat',
       }, lines)
       helpers.eq({
         {
           depth = 0,
-          display = 'animal (2)',
+          display = 'v animal',
+          expanded = true,
+          kind = 'tag',
           line = 1,
           name = 'animal',
-          notes = {
-            bird_note,
-            cat_note,
-          },
+          parent_tag = nil,
           tag = 'animal',
         },
         {
           depth = 1,
-          display = '  bird (1)',
+          display = '  > bird',
+          expanded = false,
+          kind = 'tag',
           line = 2,
           name = 'bird',
-          notes = {
-            bird_note,
-          },
+          parent_tag = 'animal',
           tag = 'animal/bird',
         },
         {
           depth = 1,
-          display = '  mammal (1)',
+          display = '  v mammal',
+          expanded = true,
+          kind = 'tag',
           line = 3,
           name = 'mammal',
-          notes = {
-            cat_note,
-          },
+          parent_tag = 'animal',
           tag = 'animal/mammal',
         },
         {
           depth = 2,
-          display = '    cat (1)',
+          display = '    > cat',
+          expanded = false,
+          kind = 'tag',
           line = 4,
           name = 'cat',
-          notes = {
-            cat_note,
-          },
+          parent_tag = 'animal/mammal',
           tag = 'animal/mammal/cat',
         },
       }, entries)
     end,
   },
   {
-    name = 'open_entry chooses a note from the selected tag and opens it',
+    name = 'open_entry opens file entries and rejects tag entries',
     run = function()
       local opened_path
-      local captured_prompt
 
       local ok = tag_tree_view.open_entry({
-        notes = {
-          {
-            path = '/tmp/20260402-010203-bird.md',
-            title = 'Bird Note',
-          },
-          {
-            path = '/tmp/20260402-020304-cat.md',
-            title = 'Cat Note',
-          },
-        },
-        tag = 'animal',
+        kind = 'file',
+        path = '/tmp/20260402-020304-cat.md',
+        title = 'Cat Note',
       }, {
         open = function(path)
           opened_path = path
           return true
         end,
-        select_note = function(notes, opts, on_choice)
-          captured_prompt = opts.prompt
-          on_choice(notes[2])
-          return true
-        end,
+      })
+
+      local tag_ok, tag_err = tag_tree_view.open_entry({
+        kind = 'tag',
+        tag = 'animal',
       })
 
       helpers.eq(true, ok)
-      helpers.eq('Taxon Tag Tree: animal', captured_prompt)
       helpers.eq('/tmp/20260402-020304-cat.md', opened_path)
+      helpers.eq(nil, tag_ok)
+      helpers.eq('not-file-entry', tag_err)
     end,
   },
   {
-    name = 'open uses the current cursor line to open the selected tag entry',
+    name = 'open toggles tags and opens files from the current cursor line',
     run = function()
       local opened_path
 
@@ -151,6 +149,7 @@ return {
               name = 'bird',
               notes = {
                 {
+                  explicit_tags = { 'animal/bird' },
                   path = '/tmp/20260402-010203-bird.md',
                   title = 'Bird Note',
                 },
@@ -161,6 +160,7 @@ return {
           name = 'animal',
           notes = {
             {
+              explicit_tags = { 'animal/bird' },
               path = '/tmp/20260402-010203-bird.md',
               title = 'Bird Note',
             },
@@ -180,17 +180,87 @@ return {
       })
 
       helpers.eq({
-        'animal (1)',
-        '  bird (1)',
+        'v animal',
+        '  > bird',
       }, result.lines)
 
       vim.api.nvim_win_set_cursor(result.win, { 2, 0 })
-      local ok = tag_tree_view.open_cursor_entry(result.bufnr, {
+      local toggled = tag_tree_view.open_cursor_entry(result.bufnr, {
         win = result.win,
       })
 
-      helpers.eq(true, ok)
+      helpers.eq({
+        'v animal',
+        '  v bird',
+        '      Bird Note [20260402-010203-bird.md]',
+      }, toggled.lines)
+
+      vim.api.nvim_win_set_cursor(result.win, { 3, 0 })
+      local opened = tag_tree_view.open_cursor_entry(result.bufnr, {
+        win = result.win,
+      })
+
+      helpers.eq(true, opened)
       helpers.eq('/tmp/20260402-010203-bird.md', opened_path)
+    end,
+  },
+  {
+    name = 'collapse_cursor_entry closes expanded tags and moves to the parent from collapsed tags',
+    run = function()
+      local result = tag_tree_view.open({
+        {
+          children = {
+            {
+              children = {
+                {
+                  children = {},
+                  name = 'cat',
+                  notes = {},
+                  tag = 'animal/mammal/cat',
+                },
+              },
+              name = 'mammal',
+              notes = {},
+              tag = 'animal/mammal',
+            },
+          },
+          name = 'animal',
+          notes = {},
+          tag = 'animal',
+        },
+      }, {
+        expanded_tags = {
+          ['animal'] = true,
+          ['animal/mammal'] = true,
+        },
+        open_window = function(bufnr)
+          local win = vim.api.nvim_get_current_win()
+          vim.api.nvim_win_set_buf(win, bufnr)
+          return win
+        end,
+      })
+
+      vim.api.nvim_win_set_cursor(result.win, { 2, 0 })
+      local collapse_ok = tag_tree_view.collapse_cursor_entry(result.bufnr, {
+        win = result.win,
+      })
+
+      helpers.eq({
+        'v animal',
+        '  > mammal',
+      }, vim.api.nvim_buf_get_lines(result.bufnr, 0, -1, false))
+      helpers.eq({
+        'v animal',
+        '  > mammal',
+      }, collapse_ok.lines)
+
+      vim.api.nvim_win_set_cursor(result.win, { 2, 0 })
+      local parent_ok = tag_tree_view.collapse_cursor_entry(result.bufnr, {
+        win = result.win,
+      })
+
+      helpers.eq(true, parent_ok)
+      helpers.eq({ 1, 0 }, vim.api.nvim_win_get_cursor(result.win))
     end,
   },
 }

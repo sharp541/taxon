@@ -29,22 +29,6 @@ local function default_open(path, opts)
   return true
 end
 
-local function default_select_note(notes, opts, on_choice)
-  if #notes == 1 then
-    on_choice(notes[1])
-    return true
-  end
-
-  vim.ui.select(notes, {
-    prompt = opts.prompt,
-    format_item = function(note)
-      return string.format('%s [%s]', note.title, vim.fs.basename(note.path))
-    end,
-  }, on_choice)
-
-  return true
-end
-
 local function set_buffer_lines(bufnr, lines)
   vim.bo[bufnr].modifiable = true
   vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
@@ -59,6 +43,33 @@ local function close_buffer(bufnr)
   end
 end
 
+local function is_expanded(expanded_tags, tag, depth)
+  if expanded_tags[tag] ~= nil then
+    return expanded_tags[tag]
+  end
+
+  return depth == 0
+end
+
+local function file_line(depth, title, basename, indent)
+  return string.rep(indent, depth) .. '  ' .. title .. ' [' .. basename .. ']'
+end
+
+local function tag_line(depth, name, expanded, indent)
+  local marker = expanded and 'v' or '>'
+  return string.rep(indent, depth) .. marker .. ' ' .. name
+end
+
+local function note_has_explicit_tag(note, tag)
+  for _, explicit_tag in ipairs(note.explicit_tags or {}) do
+    if explicit_tag == tag then
+      return true
+    end
+  end
+
+  return false
+end
+
 function M.build_entries(nodes, opts)
   vim.validate({
     nodes = { nodes, 'table' },
@@ -70,28 +81,91 @@ function M.build_entries(nodes, opts)
   local entries = {}
   local lines = {}
   local indent = opts.indent or '  '
+  local expanded_tags = opts.expanded_tags or {}
 
-  local function visit(current_nodes, depth)
+  local function visit(current_nodes, depth, parent_tag)
     for _, node in ipairs(current_nodes) do
-      local line = string.rep(indent, depth) .. node.name .. string.format(' (%d)', #node.notes)
+      local expanded = is_expanded(expanded_tags, node.tag, depth)
+      local line = tag_line(depth, node.name, expanded, indent)
 
       table.insert(entries, {
         depth = depth,
         display = line,
+        expanded = expanded,
+        kind = 'tag',
         line = #lines + 1,
         name = node.name,
-        notes = node.notes,
+        parent_tag = parent_tag,
         tag = node.tag,
       })
       table.insert(lines, line)
 
-      visit(node.children, depth + 1)
+      if expanded then
+        for _, note in ipairs(node.notes or {}) do
+          if note_has_explicit_tag(note, node.tag) then
+            local note_line = file_line(depth + 1, note.title, vim.fs.basename(note.path), indent)
+
+            table.insert(entries, {
+              depth = depth + 1,
+              display = note_line,
+              kind = 'file',
+              line = #lines + 1,
+              parent_tag = node.tag,
+              path = note.path,
+              title = note.title,
+            })
+            table.insert(lines, note_line)
+          end
+        end
+
+        visit(node.children or {}, depth + 1, node.tag)
+      end
     end
   end
 
-  visit(nodes, 0)
+  visit(nodes, 0, nil)
 
   return entries, lines
+end
+
+local function render(bufnr)
+  local state = state_by_bufnr[bufnr]
+  if state == nil then
+    return nil, 'missing-buffer-state'
+  end
+
+  local entries, lines = M.build_entries(state.nodes, {
+    expanded_tags = state.expanded_tags,
+    indent = state.indent,
+  })
+
+  if #lines == 0 then
+    lines = { state.empty_message or 'No tags found.' }
+  end
+
+  state.entries = entries
+  set_buffer_lines(bufnr, lines)
+
+  return {
+    entries = entries,
+    lines = lines,
+  }
+end
+
+function M.toggle_tag(bufnr, tag)
+  vim.validate({
+    bufnr = { bufnr, 'number' },
+    tag = { tag, 'string' },
+  })
+
+  local state = state_by_bufnr[bufnr]
+  if state == nil then
+    return nil, 'missing-buffer-state'
+  end
+
+  state.expanded_tags[tag] = not state.expanded_tags[tag]
+
+  return render(bufnr)
 end
 
 function M.open_entry(entry, opts)
@@ -102,36 +176,19 @@ function M.open_entry(entry, opts)
 
   opts = opts or {}
 
-  local notes = entry.notes or {}
-  local open = opts.open or default_open
-  local select_note = opts.select_note or default_select_note
-
-  if #notes == 0 then
-    return nil, 'missing-notes'
+  if entry.kind ~= 'file' then
+    return nil, 'not-file-entry'
   end
 
-  return select_note(notes, {
-    prompt = opts.note_prompt_title or ('Taxon Tag Tree: ' .. entry.tag),
-  }, function(note)
-    if note == nil then
-      return
-    end
+  local open = opts.open or default_open
 
-    open(note.path, {
-      keep_focus = opts.keep_focus,
-      source_win = opts.source_win,
-    })
-  end)
+  return open(entry.path, {
+    keep_focus = opts.keep_focus,
+    source_win = opts.source_win,
+  })
 end
 
-function M.open_cursor_entry(bufnr, opts)
-  vim.validate({
-    bufnr = { bufnr, 'number' },
-    opts = { opts, 'table', true },
-  })
-
-  opts = opts or {}
-
+local function current_entry(bufnr, opts)
   local state = state_by_bufnr[bufnr]
   if state == nil then
     return nil, 'missing-buffer-state'
@@ -143,19 +200,102 @@ function M.open_cursor_entry(bufnr, opts)
   end
 
   local line = vim.api.nvim_win_get_cursor(win)[1]
-  local entry = state.entries[line]
 
-  if entry == nil then
-    return nil, 'missing-entry'
+  return state.entries[line], nil, win
+end
+
+local function focus_tag(bufnr, win, tag)
+  if tag == nil then
+    return true
   end
+
+  local state = state_by_bufnr[bufnr]
+  if state == nil then
+    return nil, 'missing-buffer-state'
+  end
+
+  for _, entry in ipairs(state.entries) do
+    if entry.kind == 'tag' and entry.tag == tag then
+      vim.api.nvim_win_set_cursor(win, { entry.line, 0 })
+      return true
+    end
+  end
+
+  return nil, 'missing-entry'
+end
+
+function M.open_cursor_entry(bufnr, opts)
+  vim.validate({
+    bufnr = { bufnr, 'number' },
+    opts = { opts, 'table', true },
+  })
+
+  opts = opts or {}
+
+  local entry, err = current_entry(bufnr, opts)
+  if entry == nil then
+    return nil, err or 'missing-entry'
+  end
+
+  if entry.kind == 'tag' then
+    return M.toggle_tag(bufnr, entry.tag)
+  end
+
+  local state = state_by_bufnr[bufnr]
 
   return M.open_entry(entry, {
     keep_focus = state.keep_focus,
-    note_prompt_title = state.note_prompt_title,
     open = opts.open or state.open,
-    select_note = opts.select_note or state.select_note,
     source_win = opts.source_win or state.source_win,
   })
+end
+
+function M.expand_cursor_entry(bufnr, opts)
+  vim.validate({
+    bufnr = { bufnr, 'number' },
+    opts = { opts, 'table', true },
+  })
+
+  opts = opts or {}
+
+  local entry, err = current_entry(bufnr, opts)
+  if entry == nil then
+    return nil, err or 'missing-entry'
+  end
+
+  if entry.kind == 'file' then
+    return M.open_cursor_entry(bufnr, opts)
+  end
+
+  if entry.expanded then
+    return true
+  end
+
+  return M.toggle_tag(bufnr, entry.tag)
+end
+
+function M.collapse_cursor_entry(bufnr, opts)
+  vim.validate({
+    bufnr = { bufnr, 'number' },
+    opts = { opts, 'table', true },
+  })
+
+  opts = opts or {}
+
+  local entry, err, win = current_entry(bufnr, opts)
+  if entry == nil then
+    return nil, err or 'missing-entry'
+  end
+
+  if entry.kind == 'file' then
+    return focus_tag(bufnr, win, entry.parent_tag)
+  end
+
+  if entry.expanded then
+    return M.toggle_tag(bufnr, entry.tag)
+  end
+
+  return focus_tag(bufnr, win, entry.parent_tag)
 end
 
 function M.open_window(bufnr, opts)
@@ -185,14 +325,6 @@ function M.open(nodes, opts)
 
   opts = opts or {}
 
-  local entries, lines = M.build_entries(nodes, {
-    indent = opts.indent,
-  })
-
-  if #lines == 0 then
-    lines = { opts.empty_message or 'No tags found.' }
-  end
-
   local bufnr = vim.api.nvim_create_buf(false, true)
   local source_win = opts.source_win or vim.api.nvim_get_current_win()
   local open_window = opts.open_window or M.open_window
@@ -206,17 +338,20 @@ function M.open(nodes, opts)
   vim.bo[bufnr].buflisted = false
 
   vim.api.nvim_buf_set_name(bufnr, string.format('taxon://tag-tree/%d', bufnr))
-  set_buffer_lines(bufnr, lines)
 
   state_by_bufnr[bufnr] = {
-    entries = entries,
+    empty_message = opts.empty_message,
+    entries = {},
+    expanded_tags = vim.deepcopy(opts.expanded_tags or {}),
+    indent = opts.indent,
     keep_focus = opts.keep_focus,
-    note_prompt_title = opts.note_prompt_title,
+    nodes = nodes,
     open = opts.open,
-    select_note = opts.select_note,
     source_win = source_win,
     win = win,
   }
+
+  render(bufnr)
 
   vim.api.nvim_create_autocmd('BufWipeout', {
     buffer = bufnr,
@@ -234,6 +369,22 @@ function M.open(nodes, opts)
     silent = true,
   })
 
+  vim.keymap.set('n', 'l', function()
+    M.expand_cursor_entry(bufnr)
+  end, {
+    buffer = bufnr,
+    nowait = true,
+    silent = true,
+  })
+
+  vim.keymap.set('n', 'h', function()
+    M.collapse_cursor_entry(bufnr)
+  end, {
+    buffer = bufnr,
+    nowait = true,
+    silent = true,
+  })
+
   vim.keymap.set('n', 'q', function()
     close_buffer(bufnr)
   end, {
@@ -244,8 +395,8 @@ function M.open(nodes, opts)
 
   return {
     bufnr = bufnr,
-    entries = entries,
-    lines = lines,
+    entries = state_by_bufnr[bufnr].entries,
+    lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false),
     win = win,
   }
 end
