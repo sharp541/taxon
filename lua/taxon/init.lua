@@ -220,7 +220,7 @@ function M.show_tag_tree(opts)
     expanded_tags = opts.expanded_tags,
     indent = opts.indent,
     keep_focus = opts.keep_focus,
-    open = opts.open or edit_path,
+    open = opts.open,
     open_window = opts.open_window,
     source_win = opts.source_win,
     width = opts.width,

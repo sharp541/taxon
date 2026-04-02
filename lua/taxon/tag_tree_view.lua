@@ -2,19 +2,88 @@ local M = {}
 
 local state_by_bufnr = {}
 
+local function is_tree_window(win)
+  if win == nil or not vim.api.nvim_win_is_valid(win) then
+    return false
+  end
+
+  local buf = vim.api.nvim_win_get_buf(win)
+  return vim.bo[buf].filetype == 'taxon-tag-tree'
+end
+
+local function is_normal_window(win)
+  if win == nil or not vim.api.nvim_win_is_valid(win) then
+    return false
+  end
+
+  local config = vim.api.nvim_win_get_config(win)
+
+  return config.relative == ''
+end
+
+local function is_open_target_window(win, excluded_win)
+  if win == nil or win == excluded_win or is_tree_window(win) then
+    return false
+  end
+
+  return is_normal_window(win)
+end
+
+local function find_fallback_window(excluded_win)
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if is_open_target_window(win, excluded_win) then
+      return win
+    end
+  end
+
+  return nil
+end
+
+local function mark_temp_buffer(bufnr)
+  if vim.api.nvim_buf_is_valid(bufnr) then
+    vim.bo[bufnr].bufhidden = 'wipe'
+    vim.bo[bufnr].buflisted = false
+    vim.bo[bufnr].swapfile = false
+  end
+end
+
+local function open_edit_window(tree_win)
+  local base_win = tree_win
+  if base_win == nil or not vim.api.nvim_win_is_valid(base_win) then
+    base_win = vim.api.nvim_get_current_win()
+  end
+
+  vim.api.nvim_set_current_win(base_win)
+  vim.cmd('leftabove vnew')
+
+  local win = vim.api.nvim_get_current_win()
+  mark_temp_buffer(vim.api.nvim_win_get_buf(win))
+
+  return win
+end
+
 local function default_open(path, opts)
   opts = opts or {}
   local source_win = opts.source_win
   local current_win = vim.api.nvim_get_current_win()
+  local target_win = source_win
 
-  if source_win ~= nil and vim.api.nvim_win_is_valid(source_win) then
-    vim.api.nvim_set_current_win(source_win)
+  if not is_open_target_window(target_win, opts.tree_win) then
+    target_win = find_fallback_window(opts.tree_win)
+  end
+
+  if target_win == nil then
+    target_win = open_edit_window(opts.tree_win)
+  end
+
+  if target_win ~= nil and vim.api.nvim_win_is_valid(target_win) then
+    vim.api.nvim_set_current_win(target_win)
     vim.api.nvim_cmd({
       cmd = 'edit',
       args = { path },
     }, {})
 
-    if opts.keep_focus ~= false and vim.api.nvim_win_is_valid(current_win) then
+    if opts.keep_focus ~= false and vim.api.nvim_win_is_valid(current_win) and current_win ~= target_win then
       vim.api.nvim_set_current_win(current_win)
     end
 
@@ -185,6 +254,7 @@ function M.open_entry(entry, opts)
   return open(entry.path, {
     keep_focus = opts.keep_focus,
     source_win = opts.source_win,
+    tree_win = opts.tree_win,
   })
 end
 
@@ -247,6 +317,7 @@ function M.open_cursor_entry(bufnr, opts)
     keep_focus = state.keep_focus,
     open = opts.open or state.open,
     source_win = opts.source_win or state.source_win,
+    tree_win = opts.tree_win or state.win,
   })
 end
 
@@ -310,6 +381,11 @@ function M.open_window(bufnr, opts)
 
   local win = vim.api.nvim_get_current_win()
   local width = opts.width or math.max(30, math.floor(vim.o.columns * 0.3))
+  local temp_buf = vim.api.nvim_win_get_buf(win)
+
+  if temp_buf ~= bufnr then
+    mark_temp_buffer(temp_buf)
+  end
 
   vim.api.nvim_win_set_buf(win, bufnr)
   pcall(vim.api.nvim_win_set_width, win, width)

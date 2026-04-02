@@ -590,14 +590,17 @@ return {
         }, path)
 
         local captured_tree
+        local captured_open
         local result = taxon.show_tag_tree({
-          show = function(tree, _)
+          show = function(tree, opts)
             captured_tree = tree
+            captured_open = opts.open
             return true
           end,
         })
 
         helpers.eq(true, result)
+        helpers.eq(nil, captured_open)
         helpers.eq({
           {
             children = {
