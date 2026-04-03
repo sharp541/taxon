@@ -60,16 +60,17 @@ return {
       })
 
       helpers.eq({
-        'v animal',
-        '  > bird',
-        '  v mammal',
-        '    > cat',
+        '- animal/',
+        '  + bird/',
+        '  - mammal/',
+        '    + cat/',
       }, lines)
       helpers.eq({
         {
           depth = 0,
-          display = 'v animal',
+          display = '- animal/',
           expanded = true,
+          indent = '  ',
           kind = 'tag',
           line = 1,
           name = 'animal',
@@ -78,8 +79,9 @@ return {
         },
         {
           depth = 1,
-          display = '  > bird',
+          display = '  + bird/',
           expanded = false,
+          indent = '  ',
           kind = 'tag',
           line = 2,
           name = 'bird',
@@ -88,8 +90,9 @@ return {
         },
         {
           depth = 1,
-          display = '  v mammal',
+          display = '  - mammal/',
           expanded = true,
+          indent = '  ',
           kind = 'tag',
           line = 3,
           name = 'mammal',
@@ -98,8 +101,9 @@ return {
         },
         {
           depth = 2,
-          display = '    > cat',
+          display = '    + cat/',
           expanded = false,
+          indent = '  ',
           kind = 'tag',
           line = 4,
           name = 'cat',
@@ -317,8 +321,8 @@ return {
       })
 
       helpers.eq({
-        'v animal',
-        '  > bird',
+        '- animal/',
+        '  + bird/',
       }, result.lines)
 
       vim.api.nvim_win_set_cursor(result.win, { 2, 0 })
@@ -327,9 +331,9 @@ return {
       })
 
       helpers.eq({
-        'v animal',
-        '  v bird',
-        '      Bird Note [20260402-010203-bird.md]',
+        '- animal/',
+        '  - bird/',
+        '    20260402-010203-bird.md',
       }, toggled.lines)
 
       vim.api.nvim_win_set_cursor(result.win, { 3, 0 })
@@ -383,12 +387,12 @@ return {
       })
 
       helpers.eq({
-        'v animal',
-        '  > mammal',
+        '- animal/',
+        '  + mammal/',
       }, vim.api.nvim_buf_get_lines(result.bufnr, 0, -1, false))
       helpers.eq({
-        'v animal',
-        '  > mammal',
+        '- animal/',
+        '  + mammal/',
       }, collapse_ok.lines)
 
       vim.api.nvim_win_set_cursor(result.win, { 2, 0 })
@@ -398,6 +402,24 @@ return {
 
       helpers.eq(true, parent_ok)
       helpers.eq({ 1, 0 }, vim.api.nvim_win_get_cursor(result.win))
+    end,
+  },
+  {
+    name = 'open applies explorer-like window options to the tree buffer',
+    run = function()
+      local result = tag_tree_view.open({}, {
+        open_window = function(bufnr)
+          local win = vim.api.nvim_get_current_win()
+          vim.api.nvim_win_set_buf(win, bufnr)
+          return win
+        end,
+      })
+
+      helpers.eq(false, vim.api.nvim_get_option_value('number', { win = result.win }))
+      helpers.eq(false, vim.api.nvim_get_option_value('relativenumber', { win = result.win }))
+      helpers.eq('no', vim.api.nvim_get_option_value('signcolumn', { win = result.win }))
+      helpers.eq(false, vim.api.nvim_get_option_value('wrap', { win = result.win }))
+      helpers.eq(true, vim.api.nvim_get_option_value('cursorline', { win = result.win }))
     end,
   },
 }

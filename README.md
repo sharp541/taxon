@@ -79,7 +79,8 @@ Commands:
   directly for title matches, and opens a second picker with matching notes for
   tag matches.
 - `:TaxonTagTree` rescans `notes_dir` and opens a dedicated vertical tree
-  buffer on the left that treats tags like folders and notes like files.
+  buffer on the left that treats tags like folders and notes like files in a
+  simple explorer-style listing.
   Press `<CR>` or `l` to expand a tag or open a note, `h` to collapse or move
   to the parent tag, and `q` to close the tree.
 
@@ -116,8 +117,8 @@ immediately. Selecting a tag opens a second picker with the matching notes.
 
 `show_tag_tree()` uses the same scan model to render a dedicated tag tree view.
 Tags behave like expandable folders, and notes are shown as file entries under
-their explicit tags only; inherited parent tags stay visible as folders but do
-not list inherited notes directly.
+their explicit tags only in a read-only explorer-style buffer; inherited parent
+tags stay visible as folders but do not list inherited notes directly.
 
 ## Note Format
 

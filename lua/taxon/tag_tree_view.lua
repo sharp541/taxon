@@ -1,6 +1,7 @@
 local M = {}
 
 local state_by_bufnr = {}
+local namespace = vim.api.nvim_create_namespace('taxon-tag-tree')
 
 local function is_tree_window(win)
   if win == nil or not vim.api.nvim_win_is_valid(win) then
@@ -120,13 +121,58 @@ local function is_expanded(expanded_tags, tag, depth)
   return depth == 0
 end
 
-local function file_line(depth, title, basename, indent)
-  return string.rep(indent, depth) .. '  ' .. title .. ' [' .. basename .. ']'
+local function set_tree_window_options(win)
+  if win == nil or not vim.api.nvim_win_is_valid(win) then
+    return
+  end
+
+  local options = {
+    cursorline = true,
+    foldcolumn = '0',
+    list = false,
+    number = false,
+    relativenumber = false,
+    signcolumn = 'no',
+    spell = false,
+    wrap = false,
+  }
+
+  for name, value in pairs(options) do
+    pcall(vim.api.nvim_set_option_value, name, value, {
+      scope = 'local',
+      win = win,
+    })
+  end
+end
+
+local function note_line(depth, basename, indent)
+  return string.rep(indent, depth) .. basename
 end
 
 local function tag_line(depth, name, expanded, indent)
-  local marker = expanded and 'v' or '>'
-  return string.rep(indent, depth) .. marker .. ' ' .. name
+  local marker = expanded and '- ' or '+ '
+  return string.rep(indent, depth) .. marker .. name .. '/'
+end
+
+local function apply_highlights(bufnr, entries)
+  if not vim.api.nvim_buf_is_valid(bufnr) then
+    return
+  end
+
+  vim.api.nvim_buf_clear_namespace(bufnr, namespace, 0, -1)
+
+  for _, entry in ipairs(entries) do
+    local line = entry.line - 1
+
+    if entry.kind == 'tag' then
+      local marker_width = #string.rep(entry.indent or '  ', entry.depth) + 2
+
+      vim.api.nvim_buf_add_highlight(bufnr, namespace, 'Comment', line, 0, marker_width)
+      vim.api.nvim_buf_add_highlight(bufnr, namespace, 'Directory', line, marker_width, -1)
+    elseif entry.kind == 'file' then
+      vim.api.nvim_buf_add_highlight(bufnr, namespace, 'Normal', line, 0, -1)
+    end
+  end
 end
 
 local function note_has_explicit_tag(note, tag)
@@ -161,6 +207,7 @@ function M.build_entries(nodes, opts)
         depth = depth,
         display = line,
         expanded = expanded,
+        indent = indent,
         kind = 'tag',
         line = #lines + 1,
         name = node.name,
@@ -172,18 +219,21 @@ function M.build_entries(nodes, opts)
       if expanded then
         for _, note in ipairs(node.notes or {}) do
           if note_has_explicit_tag(note, node.tag) then
-            local note_line = file_line(depth + 1, note.title, vim.fs.basename(note.path), indent)
+            local basename = vim.fs.basename(note.path)
+            local rendered_line = note_line(depth + 1, basename, indent)
 
             table.insert(entries, {
+              basename = basename,
               depth = depth + 1,
-              display = note_line,
+              display = rendered_line,
+              indent = indent,
               kind = 'file',
               line = #lines + 1,
               parent_tag = node.tag,
               path = note.path,
               title = note.title,
             })
-            table.insert(lines, note_line)
+            table.insert(lines, rendered_line)
           end
         end
 
@@ -214,6 +264,7 @@ local function render(bufnr)
 
   state.entries = entries
   set_buffer_lines(bufnr, lines)
+  apply_highlights(bufnr, entries)
 
   return {
     entries = entries,
@@ -389,6 +440,7 @@ function M.open_window(bufnr, opts)
 
   vim.api.nvim_win_set_buf(win, bufnr)
   pcall(vim.api.nvim_win_set_width, win, width)
+  set_tree_window_options(win)
 
   return win
 end
@@ -405,6 +457,7 @@ function M.open(nodes, opts)
   local source_win = opts.source_win or vim.api.nvim_get_current_win()
   local open_window = opts.open_window or M.open_window
   local win = open_window(bufnr, opts)
+  set_tree_window_options(win)
 
   vim.bo[bufnr].bufhidden = 'wipe'
   vim.bo[bufnr].buftype = 'nofile'
@@ -412,6 +465,7 @@ function M.open(nodes, opts)
   vim.bo[bufnr].modifiable = true
   vim.bo[bufnr].swapfile = false
   vim.bo[bufnr].buflisted = false
+  vim.bo[bufnr].modifiable = false
 
   vim.api.nvim_buf_set_name(bufnr, string.format('taxon://tag-tree/%d', bufnr))
 
