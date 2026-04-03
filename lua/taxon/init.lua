@@ -1,7 +1,7 @@
 local M = {}
 
 local default_config = {
-  notes_dir = vim.fn.stdpath('data') .. '/taxon-notes',
+  notes_dir = '~/taxon_notes',
 }
 
 M.config = vim.deepcopy(default_config)

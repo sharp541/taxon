@@ -2,7 +2,7 @@ local source = debug.getinfo(1, 'S').source:sub(2)
 local root = vim.fn.fnamemodify(source, ':p:h:h')
 local root_lua = vim.fs.joinpath(root, 'lua')
 local user_init = vim.fs.joinpath(vim.fn.stdpath('config'), 'init.lua')
-local notes_dir = vim.fn.expand(vim.env.TAXON_DEV_NOTES_DIR or '~/notes')
+local notes_dir = vim.fn.expand(vim.env.TAXON_DEV_NOTES_DIR or '~/taxon_notes')
 
 local function is_other_taxon_path(path)
   local normalized = vim.fn.fnamemodify(path, ':p')

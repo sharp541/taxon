@@ -44,7 +44,7 @@ require('taxon').setup({ opts })                           *taxon-setup*
 
     If omitted, `notes_dir` defaults to:
 >
-        vim.fn.stdpath('data') .. '/taxon-notes'
+        '~/taxon_notes'
 <
 
 require('taxon').create_note(title)                   *taxon-create_note*
@@ -122,7 +122,7 @@ CONFIGURATION                                        *taxon-configuration*
 
 >
     require('taxon').setup({
-      notes_dir = vim.fn.stdpath('data') .. '/taxon-notes',
+      notes_dir = '~/taxon_notes',
     })
 <
 

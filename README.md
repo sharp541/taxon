@@ -49,24 +49,24 @@ This starts Neovim with [`scripts/dev_init.lua`](scripts/dev_init.lua), which:
 - loads your regular `~/.config/nvim/init.lua` if it exists,
 - prepends this repository to `runtimepath`,
 - registers Taxon commands from `plugin/taxon.lua`,
-- configures `notes_dir` to `./.tmp/taxon-notes` by default.
+- configures `notes_dir` to `~/taxon_notes` by default.
 
 You can override the note directory for a session:
 
 ```sh
-TAXON_DEV_NOTES_DIR=/tmp/taxon-notes ./scripts/dev
+TAXON_DEV_NOTES_DIR=/tmp/taxon_notes ./scripts/dev
 ```
 
 ## Usage
 
 ```lua
 require("taxon").setup({
-  notes_dir = vim.fn.stdpath("data") .. "/taxon-notes",
+  notes_dir = "~/taxon_notes",
 })
 ```
 
 If you do not call `setup()`, Taxon defaults `notes_dir` to
-`vim.fn.stdpath("data") .. "/taxon-notes"`.
+`~/taxon_notes`.
 
 Commands:
 
@@ -91,7 +91,7 @@ Lua API:
 
 ```lua
 require("taxon").setup({
-  notes_dir = vim.fn.stdpath("data") .. "/taxon-notes",
+  notes_dir = "~/taxon_notes",
 })
 require("taxon").create_note("Title")
 require("taxon").new_note()
