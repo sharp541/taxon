@@ -42,6 +42,25 @@ local function write_note(path, content)
   return true
 end
 
+local function note_lines(content)
+  return vim.split(content, '\n', {
+    plain = true,
+    trimempty = false,
+  })
+end
+
+local function sync_opened_note(path, content)
+  edit_path(path)
+  vim.api.nvim_buf_set_lines(0, 0, -1, false, note_lines(content))
+
+  local ok = pcall(vim.cmd, 'silent write')
+  if not ok then
+    return nil, 'write-failed'
+  end
+
+  return true
+end
+
 local function notify_create_error(err)
   local messages = {
     ['invalid-title'] = 'Taxon: title must not be blank or contain control characters',
@@ -111,7 +130,10 @@ function M.create_note(title, opts)
   end
 
   if opts.open ~= false then
-    edit_path(path)
+    local _, sync_err = sync_opened_note(path, content)
+    if sync_err ~= nil then
+      return nil, sync_err
+    end
   end
 
   return path
