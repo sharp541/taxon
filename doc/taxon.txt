@@ -33,7 +33,8 @@ COMMANDS                                                  *taxon-commands*
     Tags behave like folders and notes behave like files in a read-only,
     explorer-style listing.
     Press <CR> or `l` to expand a tag or open a note, `h` to collapse the
-    current tag or move to its parent, and `q` to close the tree view.
+    current tag or move to its parent, and `q` or <Esc> to close the tree
+    view.
 
 ==============================================================================
 LUA API                                                    *taxon-lua-api*
@@ -88,7 +89,8 @@ require('taxon').show_tag_tree()                     *taxon-show_tag_tree*
     inherited notes directly.
 
     Press <CR> or `l` to expand a tag or open a note, `h` to collapse the
-    current tag or move to its parent, and `q` to close the tree buffer.
+    current tag or move to its parent, and `q` or <Esc> to close the tree
+    buffer.
 
 ==============================================================================
 NOTE FORMAT                                            *taxon-note-format*

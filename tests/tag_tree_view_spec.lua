@@ -422,4 +422,50 @@ return {
       helpers.eq(true, vim.api.nvim_get_option_value('cursorline', { win = result.win }))
     end,
   },
+  {
+    name = 'close removes the dedicated tree window without leaving an extra split behind',
+    run = function()
+      local original_win = vim.api.nvim_get_current_win()
+      vim.cmd('enew')
+      local edit_buf = vim.api.nvim_win_get_buf(original_win)
+      local windows_before = vim.api.nvim_tabpage_list_wins(0)
+
+      local result = tag_tree_view.open({})
+      local windows_during = vim.api.nvim_tabpage_list_wins(0)
+
+      helpers.eq(#windows_before + 1, #windows_during)
+      helpers.truthy(vim.api.nvim_win_is_valid(result.win), 'expected tree window to be open')
+
+      local ok = tag_tree_view.close(result.bufnr)
+
+      helpers.eq(true, ok)
+      helpers.eq(#windows_before, #vim.api.nvim_tabpage_list_wins(0))
+      helpers.eq(original_win, vim.api.nvim_get_current_win())
+      helpers.eq(edit_buf, vim.api.nvim_win_get_buf(original_win))
+      helpers.truthy(not vim.api.nvim_win_is_valid(result.win), 'expected tree window to be closed')
+      helpers.truthy(not vim.api.nvim_buf_is_valid(result.bufnr), 'expected tree buffer to be wiped')
+
+      if vim.api.nvim_buf_is_valid(edit_buf) then
+        vim.api.nvim_buf_delete(edit_buf, { force = true })
+      end
+    end,
+  },
+  {
+    name = 'q and escape both close the tree window',
+    run = function()
+      local original_win = vim.api.nvim_get_current_win()
+
+      for _, key in ipairs({ 'q', '<Esc>' }) do
+        local result = tag_tree_view.open({})
+
+        vim.api.nvim_set_current_win(result.win)
+        vim.api.nvim_feedkeys(vim.keycode(key), 'xt', false)
+        vim.cmd('redraw')
+
+        helpers.truthy(not vim.api.nvim_win_is_valid(result.win), 'expected tree window to close for ' .. key)
+        helpers.truthy(not vim.api.nvim_buf_is_valid(result.bufnr), 'expected tree buffer to wipe for ' .. key)
+        helpers.eq(original_win, vim.api.nvim_get_current_win())
+      end
+    end,
+  },
 }

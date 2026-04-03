@@ -113,6 +113,26 @@ local function close_buffer(bufnr)
   end
 end
 
+function M.close(bufnr)
+  vim.validate({
+    bufnr = { bufnr, 'number' },
+  })
+
+  local state = state_by_bufnr[bufnr]
+  local win = state and state.win or nil
+
+  if win ~= nil and vim.api.nvim_win_is_valid(win) then
+    local ok = pcall(vim.api.nvim_win_close, win, true)
+    if ok then
+      return true
+    end
+  end
+
+  close_buffer(bufnr)
+
+  return true
+end
+
 local function is_expanded(expanded_tags, tag, depth)
   if expanded_tags[tag] ~= nil then
     return expanded_tags[tag]
@@ -516,7 +536,15 @@ function M.open(nodes, opts)
   })
 
   vim.keymap.set('n', 'q', function()
-    close_buffer(bufnr)
+    M.close(bufnr)
+  end, {
+    buffer = bufnr,
+    nowait = true,
+    silent = true,
+  })
+
+  vim.keymap.set('n', '<Esc>', function()
+    M.close(bufnr)
   end, {
     buffer = bufnr,
     nowait = true,
